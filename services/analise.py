@@ -2,9 +2,11 @@ import pandas as pd
 from datetime import datetime
 
 def processar_dados(df):
-    # Padronização de colunas (SimplesVet padrão)
-    # Filtra apenas serviços que contenham "banho"
+    # Filtra apenas linhas que são serviços de "banho"
+    # O SimplesVet usa "Produto/serviço" como nome da coluna
     banhos = df[df['Produto/serviço'].str.contains('banho', case=False, na=False)].copy()
+    
+    # Converte data brasileira (15/04/2026)
     banhos['Data'] = pd.to_datetime(banhos['Data'], dayfirst=True, errors='coerce')
     banhos = banhos.sort_values(by=['Cliente', 'Pet', 'Data'])
 
@@ -18,15 +20,14 @@ def processar_dados(df):
         ultima_visita = datas.max()
         dias_ausente = (hoje - ultima_visita).days
         
-        # Inteligência: Calcula frequência média individual
+        # Cálculo da média individual (Aprendizado)
         if len(datas) > 1:
-            # Diferença em dias entre visitas consecutivas
             intervalos = pd.Series(datas).sort_values().diff().dt.days.dropna()
             freq_media = round(intervalos.mean(), 1)
         else:
-            freq_media = 14.0 # Padrão inicial se houver apenas 1 dado
+            freq_media = 14.0 # Default para novo cliente
 
-        # Regra de Negócio: Alerta se passou da média + tolerância
+        # Lógica de Status Baseada em Evidência Individual
         if dias_ausente > (freq_media + 3):
             status = "CRÍTICO (Sumido)"
         elif dias_ausente >= freq_media:
