@@ -10,46 +10,30 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/')
 def index():
-    # Verifica se o template existe antes de carregar
-    if not os.path.exists("templates/index.html"):
-        return "Erro Crítico: Pasta 'templates' ou arquivo 'index.html' não encontrados no GitHub."
     return render_template('index.html')
 
 @app.route('/processar', methods=['POST'])
 def processar():
-    if 'file' not in request.files:
-        return "Erro: Nenhum campo de arquivo encontrado."
-    
-    file = request.files['file']
-    if file.filename == '':
-        return "Erro: Nenhum arquivo selecionado."
+    file = request.files.get('file')
+    if not file: return "Arquivo não enviado."
 
     try:
-        # Tenta ler com diferentes codificações comuns em softwares brasileiros
-        content = file.read()
-        try:
-            df = pd.read_csv(io.BytesIO(content), sep=None, engine='python', encoding='utf-8')
-        except:
-            df = pd.read_csv(io.BytesIO(content), sep=None, engine='python', encoding='iso-8859-1')
-
-        # Chamada para a inteligência de análise
+        # Lê o CSV usando ponto-e-vírgula e ignora erros de encoding
+        df = pd.read_csv(file, sep=';', encoding='latin1')
+        
         resultado = processar_dados(df)
         
-        output_path = os.path.join(UPLOAD_FOLDER, "relatorio_prospeccao.xlsx")
+        output_path = os.path.join(UPLOAD_FOLDER, "relatorio_gerado.xlsx")
         resultado.to_excel(output_path, index=False)
         
         tabela_html = resultado.to_html(classes='table table-striped table-hover', index=False)
         return render_template('index.html', tabela=tabela_html)
-
-    except KeyError as e:
-        return f"Erro de Coluna: O sistema esperava a coluna {str(e)}, mas ela não foi encontrada no seu CSV. Verifique se exportou o relatório de 'Vendas por Produto/Serviço'."
     except Exception as e:
-        return f"Erro Técnico: {str(e)}"
+        return f"Erro de Processamento: {str(e)}. Verifique se o CSV é o de 'Vendas por Produto/Serviço'."
 
 @app.route('/download')
 def download():
-    path = os.path.join(UPLOAD_FOLDER, "relatorio_prospeccao.xlsx")
-    return send_file(path, as_attachment=True)
+    return send_file(os.path.join(UPLOAD_FOLDER, "relatorio_gerado.xlsx"), as_attachment=True)
 
 if __name__ == '__main__':
     app.run()
